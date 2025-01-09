@@ -594,6 +594,94 @@ TWILIO_AUTH_TOKEN=your_token_here
 TWILIO_PHONE_NUMBER=your_number_here
 REDIS_URL=redis://localhost:6379/0
 OPENAI_API_KEY=your_key_here
+FLASK_APP=run.py
+FLASK_ENV=development
+```
+
+3. **.gitignore**:
+```
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# Environment Variables
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+```
+
+4. **README.md**:
+```markdown
+# Anchor: Get It Done
+
+A focused day planner that helps you identify and schedule your most important daily task.
+
+## Setup
+
+1. Create virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   # or
+   venv\Scripts\activate     # Windows
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Copy .env.example to .env and fill in your values:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Run the application:
+   ```bash
+   flask run
+   ```
+
+## Development
+
+- Flask routes handle webhooks in app/routes.py
+- Calendar link generation in app/calendar_service.py
+- LLM integration in app/llm.py
+- Redis storage in app/storage.py
+
+## Testing
+
+Run tests with:
+```bash
+python -m pytest
+
 ```
 
 ## 13. Ported Components

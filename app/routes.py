@@ -4,7 +4,8 @@ from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 from app.calendar_service import CalendarLinkService, EventDetails
 
-bp = Blueprint('sms', __name__, url_prefix='/sms')
+# Changed url_prefix to '' to match Twilio's webhook configuration
+bp = Blueprint('sms', __name__, url_prefix='') #none for now, may add /sms as prefix in the future
 
 def process_message(data: Dict[str, Any]) -> Dict[str, Any]:
     """Process incoming message, keeping only essential fields"""
@@ -34,20 +35,24 @@ def handle_text_message(message: Dict[str, Any]) -> str:
     if not content:
         return "I didn't receive any message content. Please try again."
         
-    if "help" in content:
-        return ("I'm your personal task planner. You can:\n"
-                "- Tell me your most important task for today\n"
-                "- Ask me to reschedule a task\n"
-                "- Check your task status")
+    if "menu" in content:
+        return ("Here's what I can help you with:\n"
+                "📝 Tell me your most important task for today\n"
+                "🕒 Ask me to reschedule a task\n"
+                "✓ Check your task status\n\n"
+                "Reply with 'menu' anytime to see this list again!")
                 
-    # Default response for now
-    return ("I've received your message! While I'm still learning, "
-            "I'll be able to help you plan and schedule your tasks soon.")
+    # Default response for first-time or unclear messages
+    return ("Welcome! I'm your task planning assistant. 👋\n"
+            "Tell me your most important task for today, or reply with 'menu' to see what else I can do!")
 
 @bp.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming SMS messages"""
     try:
+        # Log raw request data
+        current_app.logger.info(f"Received webhook request with data: {request.form}")
+        
         # Process incoming message
         message = process_message(request.form)
         current_app.logger.info(f"Received message: {message}")
@@ -57,11 +62,14 @@ def webhook():
             media_url = request.values.get('MediaUrl0', '')
             if media_url:
                 response_text = "I've received your image, but I can only process text messages for now."
+                current_app.logger.info("Received image message")
             else:
                 response_text = "I received a media message but couldn't process it. Please send text only."
+                current_app.logger.info("Received media without URL")
         else:
             # Process the text message
             response_text = handle_text_message(message)
+            current_app.logger.info(f"Sending response: {response_text}")
         
         # Create TwiML response
         resp = MessagingResponse()
