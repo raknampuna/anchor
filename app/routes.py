@@ -41,6 +41,27 @@ def handle_text_message(message: Dict[str, Any]) -> str:
                 "🕒 Ask me to reschedule a task\n"
                 "✓ Check your task status\n\n"
                 "Reply with 'menu' anytime to see this list again!")
+    
+    if content == "debug_calendar_test":
+        from datetime import datetime, timedelta
+        
+        # Create a test event for tomorrow at 10 AM
+        now = datetime.now()
+        start_time = now + timedelta(days=1)
+        start_time = start_time.replace(hour=10, minute=0, second=0, microsecond=0)
+        end_time = start_time + timedelta(hours=1)
+        
+        event = EventDetails(
+            title="Test Task",
+            description="This is a test task scheduled via SMS",
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        calendar_service = CalendarLinkService()
+        link = calendar_service.create_calendar_link(event)
+        
+        return f"Debug Calendar Test Link:\n{link}"
                 
     # Default response for first-time or unclear messages
     return ("Welcome! I'm your task planning assistant. 👋\n"
