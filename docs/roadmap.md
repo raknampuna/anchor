@@ -28,6 +28,14 @@
 2. User Timezone Management
 3. Task Scheduling and Calendar Integration
 4. Daily Planning and Reflection Workflows
+5. Quick Start Onboarding Flow
+   - User timezone capture
+   - Welcome tutorial
+   - First-time user experience
+   - Automated setup guidance
+   **Priority**: Medium
+   **Dependencies**: Core planning workflow
+   **Reasoning**: Improve user onboarding experience after core functionality is stable
 
 ## Completed Items
 - [x] Initial SMS webhook implementation

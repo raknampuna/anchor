@@ -19,7 +19,7 @@ This document outlines a focused MVP design for Anchor, a messaging-based chatbo
 - **Evening Reflection**: Simple end-of-day check-in to capture task completion, any learnings, and prompt to start planning for the next day
 - **Flexible Interaction**: Handle ad-hoc user messages throughout the day while maintaining daily planning and reflection rhythm, including mid-day replanning when circumstances change
 - **Graceful Recovery**: Simple error handling with clear user communication
-- **Quick Start**: One-message signup with timezone capture and simple tutorial
+- **Quick Start**: [Future] One-message signup with timezone capture and simple tutorial - Planned for future implementation after core functionality is stable
 
 ### Key Interactions
 1. Daily Planning (initiated at 7am local time):
