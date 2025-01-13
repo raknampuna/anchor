@@ -4,9 +4,23 @@
 This document outlines a focused MVP design for Anchor, a messaging-based chatbot that helps users identify and schedule their most important daily task. The system operates on a flexible interaction model, allowing users to respond throughout the day while maintaining a daily planning and reflection rhythm. It emphasizes natural conversation while avoiding complexity in favor of immediate utility.
 
 ### Design Principles
-- **Do One Thing Well**: Focus solely on helping users identify and schedule their most important daily task, resisting the temptation to add features for edge cases
-- **Embrace Simplicity**: Prefer direct message-based interaction over complex interfaces or workflows
-- **Minimal Conversation History**: Daily conversation context only, with minimal persistent storage for essential user data
+- **Do One Thing Well**: Focus solely on helping users identify and schedule their most important daily task
+- **Embrace Simplicity**: Prefer direct message-based interaction over complex interfaces
+- **Minimal Conversation History**: Daily conversation context only, with minimal persistent storage
+- **Immediate Value**: Prioritize immediate task scheduling over "smart" features
+- **Trust the User**: Help users make scheduling decisions rather than making decisions for them
+- **Structured Data Flow**: Maintain consistent data validation and structured responses throughout
+- **Graceful Degradation**: Always provide helpful responses, even when parsing or understanding fails
+- **Simple > Complex**: Choose simpler, more stable solutions over complex optimizations
+
+### Implementation Guidelines
+- Use Pydantic models for data validation and structure
+- Prefer simple, proven parsing approaches over complex ones
+- Always return structured responses from LLM interactions
+- Maintain clear separation between natural language and structured data
+- Provide helpful fallbacks for error cases
+- Log raw outputs for debugging when parsing fails #something we should keep longer term? questionable.  
+
 - **Immediate Value**: Prioritize immediate task scheduling over "smart" features that require historical data or learning
 - **Trust the User**: Help users make scheduling decisions rather than trying to make decisions for them
 

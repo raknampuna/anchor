@@ -1,11 +1,22 @@
 from flask import Blueprint, request, current_app, Response
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 from app.calendar_service import CalendarLinkService, EventDetails
+from app.llm import LLMService
+from app.schema import LLMResponse, MessageType, TaskTiming
+from datetime import datetime, timedelta
 
-# Changed url_prefix to '' to match Twilio's webhook configuration
-bp = Blueprint('sms', __name__, url_prefix='') #none for now, may add /sms as prefix in the future
+# Create a Flask Blueprint for SMS functionality
+# No url_prefix is specified because:
+# 1. Twilio needs to hit the webhook endpoint at exactly /webhook
+# 2. Adding a prefix would require updating the Twilio console URL
+# 3. We might add /sms prefix in the future if we need to organize multiple feature sets
+bp = Blueprint('sms', __name__)  # Remove url_prefix completely, may add /sms as prefix in the future
+
+# Initialize services
+llm_service = LLMService()
+calendar_service = CalendarLinkService()
 
 def process_message(data: Dict[str, Any]) -> Dict[str, Any]:
     """Process incoming message, keeping only essential fields"""
@@ -27,45 +38,32 @@ def send_message(to: str, message: str):
         from_=current_app.config['TWILIO_PHONE_NUMBER']
     )
 
-def handle_text_message(message: Dict[str, Any]) -> str:
-    """Process text messages and generate appropriate responses"""
-    content = message['content'].lower()
-    
-    # Basic response logic - we'll expand this later with LLM
-    if not content:
-        return "I didn't receive any message content. Please try again."
+def create_calendar_event(task: str, timing: TaskTiming) -> Optional[str]:
+    """Create calendar event if timing information is complete"""
+    if not timing or not timing.preferred_time:
+        return None
         
-    if "menu" in content:
-        return ("Here's what I can help you with:\n"
-                "📝 Tell me your most important task for today\n"
-                "🕒 Ask me to reschedule a task\n"
-                "✓ Check your task status\n\n"
-                "Reply with 'menu' anytime to see this list again!")
-    
-    if content == "debug_calendar_test":
-        from datetime import datetime, timedelta
+    try:
+        # Convert preferred time to datetime
+        schedule_time = datetime.strptime(timing.preferred_time, "%H:%M").time()
+        event_date = datetime.now().date()
+        start_time = datetime.combine(event_date, schedule_time)
         
-        # Create a test event for tomorrow at 10 AM
-        now = datetime.now()
-        start_time = now + timedelta(days=1)
-        start_time = start_time.replace(hour=10, minute=0, second=0, microsecond=0)
-        end_time = start_time + timedelta(hours=1)
+        # Default to 30 min if duration not specified
+        duration = timing.duration_minutes or 30
+        end_time = start_time + timedelta(minutes=duration)
         
         event = EventDetails(
-            title="Test Task",
-            description="This is a test task scheduled via SMS",
+            title=task,
+            description="Task scheduled via Anchor",
             start_time=start_time,
             end_time=end_time
         )
         
-        calendar_service = CalendarLinkService()
-        link = calendar_service.create_calendar_link(event)
-        
-        return f"Debug Calendar Test Link:\n{link}"
-                
-    # Default response for first-time or unclear messages
-    return ("Welcome! I'm your task planning assistant. 👋\n"
-            "Tell me your most important task for today, or reply with 'menu' to see what else I can do!")
+        return calendar_service.create_calendar_link(event)
+    except Exception as e:
+        current_app.logger.error(f"Error creating calendar event: {str(e)}")
+        return None
 
 @bp.route('/webhook', methods=['POST'])
 def webhook():
@@ -78,19 +76,24 @@ def webhook():
         message = process_message(request.form)
         current_app.logger.info(f"Received message: {message}")
         
-        # Handle media if present
-        if request.values.get('NumMedia', '0') != '0':
-            media_url = request.values.get('MediaUrl0', '')
-            if media_url:
-                response_text = "I've received your image, but I can only process text messages for now."
-                current_app.logger.info("Received image message")
-            else:
-                response_text = "I received a media message but couldn't process it. Please send text only."
-                current_app.logger.info("Received media without URL")
-        else:
-            # Process the text message
-            response_text = handle_text_message(message)
-            current_app.logger.info(f"Sending response: {response_text}")
+        # Process with LLM and get structured response
+        llm_response = llm_service.process_message(
+            user_id=message['sender'],
+            message=message['content']
+        )
+        
+        response_text = llm_response.response
+        
+        # If we have a task and timing, create calendar event
+        if llm_response.task and llm_response.timing:
+            calendar_link = create_calendar_event(
+                llm_response.task,
+                llm_response.timing
+            )
+            if calendar_link:
+                response_text += f"\n\nAdd to calendar: {calendar_link}"
+        
+        current_app.logger.info(f"Sending response: {response_text}")
         
         # Create TwiML response
         resp = MessagingResponse()
@@ -99,6 +102,7 @@ def webhook():
         
     except Exception as e:
         current_app.logger.error(f"Error processing message: {str(e)}")
+        # Return friendly error message
         resp = MessagingResponse()
-        resp.message("I encountered an error processing your message. Please try again.")
+        resp.message("I'm having trouble processing your message. Please try again in a moment.")
         return Response(str(resp), mimetype='text/xml')

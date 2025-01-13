@@ -22,13 +22,10 @@
 - [ ] Add integration tests for webhook routing
 
 ## Planned Features
-1. Google Gemini Integration for Natural Language Processing
-   - Using Gemini API for message understanding and generation
-   - Implement conversation context management
-2. User Timezone Management
-3. Task Scheduling and Calendar Integration
-4. Daily Planning and Reflection Workflows
-5. Quick Start Onboarding Flow
+1. User Timezone Management
+2. Task Scheduling and Calendar Integration
+3. Daily Planning and Reflection Workflows
+4. Quick Start Onboarding Flow
    - User timezone capture
    - Welcome tutorial
    - First-time user experience
@@ -42,3 +39,18 @@
 - [x] Basic message handling structure
 - [x] Twilio integration
 - [x] Calendar link generation service
+- [x] Google Gemini Integration
+  - [x] Structured response parsing with Pydantic
+  - [x] Conversation context management
+  - [x] Error handling and recovery
+  - [x] Natural language task extraction
+
+## Future Improvements
+- [ ] Enhanced LLM prompting for better task extraction
+- [ ] Improved error recovery strategies
+- [ ] More sophisticated context management
+- [ ] Better timing extraction for complex schedules
+- [ ] Evaluate Gemini function calling when available
+  - Current marker-based parsing is stable but basic
+  - Function calling could provide better structure
+  - Wait for mature Gemini support before implementing

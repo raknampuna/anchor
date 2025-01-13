@@ -13,3 +13,4 @@ mypy==1.7.1
 pyngrok>=7.2.0
 # requirements.txt (add this line)
 pydantic>=2.5.0
+redis>=5.0.0

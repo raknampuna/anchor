@@ -1,8 +1,9 @@
 """Schema definitions for Anchor task planning system."""
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
+import json
 from datetime import datetime, time
+from pydantic import BaseModel, Field
 from enum import Enum
 
 class MessageType(str, Enum):
@@ -13,66 +14,76 @@ class MessageType(str, Enum):
     AD_HOC = "ad_hoc"
 
 class TimeBlock(BaseModel):
-    """Schema for time block suggestions"""
+    """Time block for scheduling"""
     start_time: str = Field(..., description="Start time in HH:MM format")
-    end_time: str = Field(..., description="End time in HH:MM format")
-    calendar_link: Optional[str] = Field(None, description="Generated calendar link")
+    end_time: Optional[str] = Field(None, description="End time in HH:MM format")
+    description: Optional[str] = Field(None, description="Description of the time block")
+    is_focus_block: bool = Field(default=False, description="Whether this is a focus block for the main task")
 
-class TaskCompletion(BaseModel):
-    """Schema for evening reflection data"""
-    completed: bool = Field(..., description="Whether the task was completed")
-    follow_up_task: Optional[str] = Field(None, description="Follow-up task for tomorrow")
-    learnings: Optional[str] = Field(None, description="Key learnings or blockers")
-
-class TaskInfo(BaseModel):
-    """Schema for task information extracted from messages"""
-    task: Optional[str] = Field(None, description="The main task description")
-    duration_minutes: Optional[int] = Field(None, description="Task duration in minutes")
-    constraints: List[str] = Field(default_factory=list, description="List of time constraints")
-    time_block: Optional[TimeBlock] = Field(None, description="Suggested time block")
-    completion: Optional[TaskCompletion] = Field(None, description="Task completion info")
-
-class UserContext(BaseModel):
-    """Schema for user context"""
-    timezone: Optional[str] = Field(None, description="User's timezone")
-    last_interaction: Optional[datetime] = Field(None, description="Last message timestamp")
-    current_task: Optional[TaskInfo] = Field(None, description="Current task info")
-    message_type: MessageType = Field(default=MessageType.AD_HOC, description="Type of interaction")
+class TaskTiming(BaseModel):
+    """Timing information for a task"""
+    duration_minutes: Optional[int] = Field(None, description="Expected duration in minutes")
+    deadline: Optional[str] = Field(None, description="Deadline time in HH:MM format")
+    preferred_time: Optional[str] = Field(None, description="User's preferred time in HH:MM format")
+    constraints: List[TimeBlock] = Field(default_factory=list, description="List of time constraints")
 
 class LLMResponse(BaseModel):
     """Schema for LLM responses"""
     response: str = Field(..., description="Natural language response to user")
-    info: TaskInfo = Field(..., description="Structured task information")
-    suggested_message_type: MessageType = Field(
+    task: Optional[str] = Field(None, description="Task description if provided")
+    message_type: MessageType = Field(
         default=MessageType.AD_HOC,
-        description="Suggested next interaction type"
+        description="Message type for this interaction"
     )
+    timing: Optional[TaskTiming] = Field(None, description="Timing information if provided")
 
     @classmethod
     def from_llm_output(cls, text: str) -> "LLMResponse":
-        """Parse LLM output into structured response"""
+        """Parse LLM output into structured response.
+        
+        The LLM output is expected in the format:
+        RESPONSE: Natural language response
+        INFO: {
+            "task": string or null,
+            "message_type": string,
+            "timing": {...} or null
+        }
+        
+        Uses a simple, stable parsing approach that:
+        1. Finds the last occurrence of RESPONSE: and INFO: markers
+        2. Extracts JSON from the INFO section
+        3. Falls back to friendly defaults if parsing fails
+        """
         try:
-            # Split response and info sections
-            response_parts = text.split('INFO:', 1)
-            if len(response_parts) != 2:
-                raise ValueError("Response missing INFO section")
-                
-            response_text = response_parts[0].replace('RESPONSE:', '').strip()
-            info_json = response_parts[1].strip()
+            # Find the last occurrence of RESPONSE: and INFO: 
+            # (in case they appear in the example part of the prompt)
+            response_idx = text.rfind("RESPONSE:")
+            info_idx = text.rfind("INFO:")
             
+            if response_idx == -1 or info_idx == -1:
+                raise ValueError("Missing RESPONSE or INFO section")
+                
+            # Extract the response text
+            response_text = text[response_idx + 9:info_idx].strip()
+            
+            # Extract and parse the JSON part
+            info_text = text[info_idx + 5:].strip()
+            info = json.loads(info_text)
+            
+            # Create response with simple defaults if parts are missing
             return cls(
                 response=response_text,
-                info=TaskInfo.model_validate_json(info_json)
+                task=info.get("task"),
+                message_type=MessageType(info.get("message_type", "ad_hoc")),
+                timing=TaskTiming(**info["timing"]) if info.get("timing") else None
             )
+            
         except Exception as e:
-            raise ValueError(f"Failed to parse LLM response: {str(e)}")
-
-    def update_context(self, context: UserContext) -> UserContext:
-        """Update user context with new information"""
-        if self.info.task:
-            context.current_task = self.info
-        
-        context.message_type = self.suggested_message_type
-        context.last_interaction = datetime.now()
-        
-        return context
+            print(f"Error parsing LLM output: {str(e)}")
+            print(f"Raw output: {text}")
+            return cls(
+                response="Hi! I'm here to help you plan your tasks. What would you like to accomplish today?",
+                task=None,
+                message_type=MessageType.AD_HOC,
+                timing=None
+            )
