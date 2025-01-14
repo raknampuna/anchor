@@ -133,6 +133,168 @@ Manages daily triggers for morning planning and evening reflection prompts.
 - 8pm PT: Evening reflection prompt
 - 12am PT: Context cleanup
 
+### 6. Logging System (`app/logging.py`)
+
+#### Overview
+Structured logging system that maintains both consolidated and type-specific logs for each phone number, enabling both easy manual review and programmatic analysis.
+
+#### Directory Structure
+```
+logs/
+  └── phone_numbers/
+      └── +1234567890/
+          ├── consolidated.log     # All events in chronological order
+          └── by_type/            # Separated by concern
+              ├── interaction.log  # User interactions
+              ├── llm.log         # LLM requests/responses
+              └── error.log       # Error events
+```
+
+#### Log Format
+```json
+{
+  "timestamp": "2025-01-13T07:29:22-08:00",
+  "level": "INFO",
+  "event_type": "user_interaction|llm_response|error|system",
+  "phone_number": "+1234567890",
+  "data": {
+    "duration_ms": 1234,          // Performance tracking
+    "related_events": ["uuid-1"], // Links to related log entries
+    "status": "success|failed",   // Event outcome
+    "error_type": "rate_limit",   // For error categorization
+    "message": "User message or error description",
+    "component": "llm|storage|sms", // Source component
+    // Event-specific data...
+  },
+  "metadata": {
+    "session_id": "uuid",
+    "version": "1.0",
+    "trace_id": "uuid"  // For request tracing
+  }
+}
+```
+
+#### Event Types
+- `user_interaction`: Messages received from or sent to users
+- `llm_response`: Inputs to and outputs from the LLM service
+- `error`: System errors and exceptions
+- `system`: Internal system events (startup, shutdown, etc.)
+
+#### CLI Tool (`logs.py`)
+Command-line interface for log viewing and analysis:
+
+```bash
+# Basic Usage
+./logs.py view PHONE_NUMBER    # View consolidated logs
+./logs.py follow PHONE_NUMBER  # Follow logs in real-time
+
+# Cross-Number Analysis
+./logs.py search --all-numbers [options]  # Search across all numbers
+./logs.py summary --all-numbers [options] # Statistics across all numbers
+
+# Error Analysis
+./logs.py search --all-numbers --level ERROR --context 5min
+./logs.py search --error-type rate_limit
+./logs.py summary --focus errors --last 7d
+
+# Performance Analysis
+./logs.py search --type llm --duration ">5000"  # Slow LLM responses
+./logs.py summary --focus latency --component llm
+./logs.py search --status failed --component storage
+
+# User Interaction Analysis
+./logs.py search --type interaction --contains "don't understand"
+./logs.py summary --focus completion-rate
+./logs.py search --pattern "rescheduling" --last 24h
+
+# System Health
+./logs.py search --type system --level WARNING|ERROR
+./logs.py summary --focus "rate-limits,quotas" --last 1h
+
+Options:
+  --level LEVEL         Filter by log level (INFO|WARNING|ERROR)
+  --since TIME         Show logs since time (e.g. "2h ago", "2025-01-13")
+  --event-type TYPE    Filter by event type
+  --context TIME       Show surrounding events within time window
+  --component NAME     Filter by system component
+  --status STATUS     Filter by event status
+  --error-type TYPE   Filter by error category
+  --duration EXPR     Filter by duration (e.g. ">5000", "<1000")
+  --contains TEXT     Search in message content
+  --pattern REGEX     Search using regex pattern
+  --focus METRIC      Focus summary on specific metrics
+```
+
+#### Key Features
+- Structured JSON logging for machine readability
+- Consolidated and type-specific logs
+- Cross-number analysis capabilities
+- Performance tracking and monitoring
+- Error correlation and analysis
+- User interaction pattern analysis
+- System health monitoring
+- Flexible search and filtering
+- Customizable summary statistics
+- Colorized CLI output
+- Unix pipe compatibility
+
+#### Implementation Notes
+- Uses Python's built-in logging module with custom formatters
+- Automatic log rotation to manage file sizes
+- Thread-safe writing to multiple log files
+- Efficient disk usage through shared file handles
+- Sanitized phone numbers for directory names
+- UTC timestamps with timezone information
+- Event correlation through related_events and trace_id
+- Categorized error types for better analysis
+- Component-level tracking for targeted debugging
+
+#### Common Query Patterns
+1. Error Investigation:
+   ```bash
+   # Find error and related events
+   ./logs.py search --trace-id <id> --context 5min
+   
+   # Track error patterns
+   ./logs.py summary --focus errors --group-by error_type
+   ```
+
+2. Performance Monitoring:
+   ```bash
+   # Component latency analysis
+   ./logs.py summary --focus latency --group-by component
+   
+   # Slow operation detection
+   ./logs.py search --duration ">5000" --last 1h
+   ```
+
+3. User Experience Analysis:
+   ```bash
+   # Completion rate tracking
+   ./logs.py summary --focus completion-rate --group-by hour
+   
+   # Confusion point detection
+   ./logs.py search --pattern "what|how|why" --type interaction
+   ```
+
+4. System Health:
+   ```bash
+   # Service disruption detection
+   ./logs.py search --level ERROR --group-by component
+   
+   # Resource usage tracking
+   ./logs.py summary --focus "rate-limits,quotas" --last 24h
+   ```
+
+#### Future Considerations
+- Log aggregation across multiple instances
+- Dashboard integration
+- Advanced analytics and ML-based pattern detection
+- Log retention policies
+- Export capabilities
+- Real-time alerting based on log patterns
+- Custom metric definition and tracking
+
 ## Configuration (`config/settings.py`)
 
 ### Key Settings
