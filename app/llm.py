@@ -138,7 +138,7 @@ INFO: {{
             context.update({
                 "current_task": llm_response.task or context.get("current_task"),
                 "message_type": llm_response.message_type or context.get("message_type"),
-                "timing": llm_response.timing.dict() if llm_response.timing else context.get("timing"),
+                "timing": llm_response.timing.model_dump() if llm_response.timing else context.get("timing"),
                 "last_interaction": datetime.now().isoformat()
             })
             

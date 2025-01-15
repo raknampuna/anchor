@@ -48,34 +48,69 @@ def send_message(to: str, message: str):
 def create_calendar_event(task: str, timing: TaskTiming, phone_number: str) -> Optional[str]:
     """Create calendar event if timing information is complete"""
     if not timing or not timing.preferred_time:
+        log_system(phone_number, "Skipping calendar event creation - incomplete timing information")
         return None
         
     try:
-        # Convert preferred time to datetime
+        # Convert preferred time to datetime with timezone
         schedule_time = datetime.strptime(timing.preferred_time, "%H:%M").time()
         event_date = datetime.now().date()
         start_time = datetime.combine(event_date, schedule_time)
         
-        # Default to 30 min if duration not specified
+        # Use duration from timing, fallback to 30 min
         duration = timing.duration_minutes or 30
         end_time = start_time + timedelta(minutes=duration)
         
+        # Create event with constraints
         event = EventDetails(
             title=task,
-            description="Task scheduled via Anchor",
+            description=f"Task scheduled via Anchor\nDeadline: {timing.deadline if timing.deadline else 'None'}",
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
+            constraints=timing.constraints or []
         )
         
+        # Check for constraint conflicts
+        if not event.check_constraints():
+            log_error(
+                phone_number,
+                "Event conflicts with existing constraints",
+                error_type="scheduling_conflict",
+                extra_data={
+                    "task": task,
+                    "timing": timing.model_dump(),
+                    "constraints": [c.model_dump() for c in timing.constraints]
+                }
+            )
+            return None
+            
         link = calendar_service.create_calendar_link(event)
         if link:
-            log_system(phone_number, f"Created calendar event: {task}", 
-                      extra_data={"event": event.dict(), "link": link})
-        return link
+            log_system(
+                phone_number, 
+                f"Created calendar event: {task}", 
+                extra_data={
+                    "event": event.model_dump(),
+                    "link": link
+                }
+            )
+            return link
+        return None
+    except ValueError as ve:
+        log_error(
+            phone_number, 
+            f"Invalid event details: {str(ve)}", 
+            error_type="calendar_validation_error",
+            extra_data={"task": task, "timing": timing.model_dump()}
+        )
+        return None
     except Exception as e:
-        log_error(phone_number, f"Error creating calendar event: {str(e)}", 
-                 error_type="calendar_error",
-                 extra_data={"task": task, "timing": timing.dict()})
+        log_error(
+            phone_number, 
+            f"Error creating calendar event: {str(e)}", 
+            error_type="calendar_error",
+            extra_data={"task": task, "timing": timing.model_dump()}
+        )
         return None
 
 @bp.route('/webhook', methods=['POST'])
@@ -112,7 +147,7 @@ def webhook():
             extra_data={
                 "task": llm_response.task,
                 "message_type": llm_response.message_type,
-                "timing": llm_response.timing.dict() if llm_response.timing else None
+                "timing": llm_response.timing.model_dump() if llm_response.timing else None
             }
         )
         

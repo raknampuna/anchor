@@ -1,12 +1,10 @@
 # app/logging.py
 
-import json
 import logging
 import os
-import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
 class AnchorLogger:
     def __init__(self, base_dir: str = "logs"):
@@ -24,91 +22,38 @@ class AnchorLogger:
         phone_dir.mkdir(exist_ok=True)
         (phone_dir / "by_type").mkdir(exist_ok=True)
         return phone_dir
-        
-    def create_log_entry(
-        self,
-        level: str,
-        event_type: str,
-        phone_number: str,
-        message: str,
-        component: str,
-        duration_ms: Optional[int] = None,
-        related_events: Optional[List[str]] = None,
-        status: str = "success",
-        error_type: Optional[str] = None,
-        extra_data: Optional[Dict[str, Any]] = None
-    ) -> dict:
-        """Create a structured log entry"""
-        entry = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "level": level,
-            "event_type": event_type,
-            "phone_number": phone_number,
-            "data": {
-                "message": message,
-                "component": component,
-                "duration_ms": duration_ms,
-                "related_events": related_events or [],
-                "status": status,
-                "error_type": error_type,
-                **(extra_data or {})
-            },
-            "metadata": {
-                "session_id": str(uuid.uuid4()),
-                "version": "1.0",
-                "trace_id": str(uuid.uuid4())
-            }
-        }
-        return entry
 
-    def write_log(self, entry: dict):
+    def write_log(self, phone_number: str, level: str, message: str, event_type: str):
         """Write a log entry to both consolidated and type-specific logs"""
-        phone_dir = self.get_phone_dir(entry["phone_number"])
+        timestamp = datetime.now().isoformat()
+        log_line = f"{timestamp} - {level} - {message}\n"
+        
+        phone_dir = self.get_phone_dir(phone_number)
         
         # Write to consolidated log
         with open(phone_dir / "consolidated.log", "a") as f:
-            json.dump(entry, f)
-            f.write("\n")
+            f.write(log_line)
             
         # Write to type-specific log
-        type_file = phone_dir / "by_type" / f"{entry['event_type']}.log"
+        type_file = phone_dir / "by_type" / f"{event_type}.log"
         with open(type_file, "a") as f:
-            json.dump(entry, f)
-            f.write("\n")
-
-    def log(
-        self,
-        level: str,
-        event_type: str,
-        phone_number: str,
-        message: str,
-        component: str,
-        **kwargs
-    ):
-        """Main logging interface"""
-        entry = self.create_log_entry(
-            level=level,
-            event_type=event_type,
-            phone_number=phone_number,
-            message=message,
-            component=component,
-            **kwargs
-        )
-        self.write_log(entry)
+            f.write(log_line)
 
 # Create global logger instance
 logger = AnchorLogger()
 
-# Convenience methods
 def log_interaction(phone_number: str, message: str, **kwargs):
-    logger.log("INFO", "user_interaction", phone_number, message, "sms", **kwargs)
+    """Log user interaction"""
+    logger.write_log(phone_number, "INFO", message, "interaction")
 
 def log_llm(phone_number: str, message: str, **kwargs):
-    logger.log("INFO", "llm_response", phone_number, message, "llm", **kwargs)
+    """Log LLM response"""
+    logger.write_log(phone_number, "INFO", message, "llm")
 
 def log_error(phone_number: str, message: str, error_type: str, **kwargs):
-    logger.log("ERROR", "error", phone_number, message, "system", 
-               error_type=error_type, status="failed", **kwargs)
+    """Log error"""
+    logger.write_log(phone_number, "ERROR", message, "error")
 
 def log_system(phone_number: str, message: str, **kwargs):
-    logger.log("INFO", "system", phone_number, message, "system", **kwargs)
+    """Log system message"""
+    logger.write_log(phone_number, "INFO", message, "system")
