@@ -26,7 +26,7 @@ class AnchorLogger:
     def write_log(self, phone_number: str, level: str, message: str, event_type: str):
         """Write a log entry to both consolidated and type-specific logs"""
         timestamp = datetime.now().isoformat()
-        log_line = f"{timestamp} - {level} - {message}\n"
+        log_line = f"[{timestamp}] {level}: {message}\n"
         
         phone_dir = self.get_phone_dir(phone_number)
         

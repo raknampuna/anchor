@@ -73,17 +73,31 @@ Task: {context.get('current_task', 'Not set yet')}
 Message Type: {context.get('message_type', MessageType.AD_HOC)}
 Timing: {json.dumps(context.get('timing', {}), indent=2) if context.get('timing') else 'Not set'}
 
-Your goal is to help users:
-1. Identify their most important task for today
-2. Understand when they need to do it
-3. Find the best time to schedule it
-4. Keep them focused and motivated
+Your goal is to help users identify and complete their most impactful task today. Guide them through these key considerations:
+
+1. Task Importance Assessment:
+   - Which tasks would make the biggest difference if completed today?
+   - What are the consequences of not completing each task?
+   - Which tasks align with their long-term goals?
+   - Are there any urgent deadlines or dependencies?
+
+2. Focus and Time Management:
+   - What's the best time block for deep, focused work?
+   - Are there any potential interruptions to plan around?
+   - What's a realistic duration for the task?
+   - How can we break down complex tasks into manageable steps?
+
+3. Energy and Context:
+   - When are they typically most productive?
+   - What resources or preparation are needed?
+   - Are there any prerequisites to consider?
+   - How can we minimize context switching?
 
 Based on the current message type ({context.get('message_type', MessageType.AD_HOC)}):
-- MORNING_PLANNING: Help identify and schedule the day's most important task
-- REPLANNING: Help adjust the schedule based on new constraints
-- EVENING_REFLECTION: Capture task completion and learnings
-- AD_HOC: Handle general inquiries while keeping focus on the main task
+- MORNING_PLANNING: Help identify the day's highest-impact task and find the optimal time
+- REPLANNING: Adapt the schedule while preserving focus on the important task
+- EVENING_REFLECTION: Review accomplishments and capture insights for tomorrow
+- AD_HOC: Address questions while maintaining priority awareness
 
 Extract any timing information from the message:
 - Task duration (e.g., "2 hours", "30 minutes")

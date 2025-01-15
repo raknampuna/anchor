@@ -31,12 +31,24 @@ class LogAnalyzer:
         else:
             return datetime.fromisoformat(time_str)
             
+    def parse_log_line(self, line: str) -> dict:
+        """Parse a log line into components"""
+        match = re.match(r'\[(.*?)\] (\w+): (.*)', line.strip())
+        if not match:
+            return None
+        timestamp, level, message = match.groups()
+        return {
+            "timestamp": timestamp,
+            "level": level,
+            "message": message
+        }
+            
     def filter_log(self, entry: dict, args: argparse.Namespace) -> bool:
         """Apply filters to log entry"""
-        if args.level and entry["level"] != args.level:
+        if not entry:
             return False
             
-        if args.event_type and entry["event_type"] != args.event_type:
+        if args.level and entry["level"] != args.level:
             return False
             
         if args.since:
@@ -44,30 +56,18 @@ class LogAnalyzer:
             if entry_time < self.parse_time(args.since):
                 return False
                 
-        if args.component and entry["data"]["component"] != args.component:
+        if args.contains and args.contains.lower() not in entry["message"].lower():
             return False
             
-        if args.status and entry["data"]["status"] != args.status:
-            return False
-            
-        if args.error_type and entry["data"].get("error_type") != args.error_type:
-            return False
-            
-        if args.duration:
-            op, val = re.match(r"([<>])(\d+)", args.duration).groups()
-            dur = entry["data"].get("duration_ms", 0)
-            if op == ">" and dur <= int(val):
-                return False
-            if op == "<" and dur >= int(val):
-                return False
-                
-        if args.contains and args.contains.lower() not in entry["data"]["message"].lower():
-            return False
-            
-        if args.pattern and not re.search(args.pattern, entry["data"]["message"]):
+        if args.pattern and not re.search(args.pattern, entry["message"]):
             return False
             
         return True
+        
+    def print_entry(self, entry: dict):
+        """Print a log entry"""
+        if entry:
+            print(f"[{entry['timestamp']}] {entry['level']}: {entry['message']}")
         
     def view_logs(self, phone_number: str, args: argparse.Namespace):
         """View logs for a specific phone number"""
@@ -75,7 +75,7 @@ class LogAnalyzer:
         
         with open(log_file) as f:
             for line in f:
-                entry = json.loads(line)
+                entry = self.parse_log_line(line)
                 if self.filter_log(entry, args):
                     self.print_entry(entry)
                     
@@ -86,7 +86,7 @@ class LogAnalyzer:
         with open(log_file) as f:
             # First, read existing content
             for line in f:
-                entry = json.loads(line)
+                entry = self.parse_log_line(line)
                 if self.filter_log(entry, args):
                     self.print_entry(entry)
             
@@ -94,25 +94,32 @@ class LogAnalyzer:
             while True:
                 line = f.readline()
                 if line:
-                    entry = json.loads(line)
+                    entry = self.parse_log_line(line)
                     if self.filter_log(entry, args):
                         self.print_entry(entry)
                 else:
                     time.sleep(0.1)
                     
-    def print_entry(self, entry: dict):
-        """Pretty print a log entry"""
-        # Add colors based on level
-        colors = {
-            "ERROR": "\033[91m",  # Red
-            "WARNING": "\033[93m",  # Yellow
-            "INFO": "\033[92m",  # Green
-            "END": "\033[0m"
-        }
+    def search_logs(self, phone_number: str, args: argparse.Namespace):
+        """Search logs for a specific phone number"""
+        log_file = self.get_phone_logs(phone_number) / "consolidated.log"
         
-        level_color = colors.get(entry["level"], "")
-        print(f"{level_color}[{entry['timestamp']}] {entry['level']}: {entry['data']['message']}{colors['END']}")
-
+        with open(log_file) as f:
+            for line in f:
+                entry = self.parse_log_line(line)
+                if self.filter_log(entry, args):
+                    self.print_entry(entry)
+                    
+    def summary_logs(self, phone_number: str, args: argparse.Namespace):
+        """Summary logs for a specific phone number"""
+        log_file = self.get_phone_logs(phone_number) / "consolidated.log"
+        
+        with open(log_file) as f:
+            for line in f:
+                entry = self.parse_log_line(line)
+                if self.filter_log(entry, args):
+                    self.print_entry(entry)
+                    
 def main():
     parser = argparse.ArgumentParser(description="Anchor Log Analysis Tool")
     parser.add_argument("command", choices=["view", "follow", "search", "summary"])
@@ -121,11 +128,6 @@ def main():
     # Filter options
     parser.add_argument("--level", choices=["INFO", "WARNING", "ERROR"])
     parser.add_argument("--since", help="Show logs since (e.g., '2h ago', '2025-01-13')")
-    parser.add_argument("--event-type", help="Filter by event type")
-    parser.add_argument("--component", help="Filter by component")
-    parser.add_argument("--status", help="Filter by status")
-    parser.add_argument("--error-type", help="Filter by error type")
-    parser.add_argument("--duration", help="Filter by duration (e.g., '>5000')")
     parser.add_argument("--contains", help="Filter by message content")
     parser.add_argument("--pattern", help="Filter by regex pattern")
     
@@ -136,7 +138,10 @@ def main():
         analyzer.view_logs(args.phone_number, args)
     elif args.command == "follow":
         analyzer.follow_logs(args.phone_number, args)
-    # TODO: Implement search and summary commands
+    elif args.command == "search":
+        analyzer.search_logs(args.phone_number, args)
+    elif args.command == "summary":
+        analyzer.summary_logs(args.phone_number, args)
     
 if __name__ == "__main__":
     main()
